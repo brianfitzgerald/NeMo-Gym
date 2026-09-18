@@ -51,5 +51,12 @@ Add this to `benchmarks/launcher/.env`:
 export GYM_DEV_CHECKOUT="/path/to/dev-gym"
 ```
 
-The checkout must be accessible on compute nodes. It is mounted at `/opt/nemo-gym`
-and installed at startup, which may modify its Ray dependency and lockfile.
+The checkout must be accessible on compute nodes. It is mounted read-only at
+`/mnt/gym-dev` and copied into the container at `/opt/nemo-gym`, excluding runtime
+logs, caches, environments and credentials. Installation and evaluation modify only
+this private copy. Source edits after startup apply to future jobs; logs and results
+still go to the shared run directory.
+
+Set `GYM_INFERENCE_METRICS_ENABLED=true` to scrape vLLM replicas and the router
+and publish their counters and gauges through the configured exporters (including W&B).
+Router metrics appear under `router/main/`; vLLM metrics remain under `vllm/`.

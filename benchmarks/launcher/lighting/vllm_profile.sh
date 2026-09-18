@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Lightning 3.5 BF16, TP1, native MTP from the served checkpoint.
 MODEL_NAME=lightning35-bf16
+export ROUTER_BALANCE_ABS_THRESHOLD=40
+export ROUTER_BALANCE_REL_THRESHOLD=2
 # The checkpoint declares 256K; explicitly allow the 1M serving limit.
 export VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
 VLLM_COMMON_ARGS=(
@@ -10,6 +12,8 @@ VLLM_COMMON_ARGS=(
     --tensor-parallel-size 1
     --data-parallel-size 1
     --distributed-executor-backend mp
+    --api-server-count 16
+    --renderer-num-workers 16
     --enable-auto-tool-choice
     --tool-call-parser qwen3_coder
     --reasoning-parser nemotron_v3

@@ -53,7 +53,7 @@ export MOUNTS="$RUNS_DIR:$RUNS_DIR,$checkpoint:$checkpoint:ro"
 MOUNTS+=",$VLLM_CONFIG:$VLLM_CONFIG:ro"
 
 if [[ -n ${GYM_DEV_CHECKOUT:-} ]]; then
-    MOUNTS+=",$(realpath "$GYM_DEV_CHECKOUT"):/opt/nemo-gym"
+    MOUNTS+=",$(realpath "$GYM_DEV_CHECKOUT"):/mnt/gym-dev:ro"
 fi
 
 # Shared Gym run settings; prepare receives only the benchmark arguments below.

@@ -13,7 +13,8 @@ set -euo pipefail
 #   GYM_RUN_ARGS                       shell-quoted shared Gym run settings
 #   GYM_INFERENCE_METRICS_ENABLED      sampler switch supplied by eval.sh
 #   SBATCH_ACCOUNT, SBATCH_PARTITION, SBATCH_QOS    Slurm submission defaults
-# Optional: NEMO_GYM_USER (defaults to USER), ROUTER_RUST_LOG,
+# Optional: ROUTER_BALANCE_ABS_THRESHOLD (default 40), ROUTER_BALANCE_REL_THRESHOLD (default 2),
+#   NEMO_GYM_USER (defaults to USER), ROUTER_RUST_LOG,
 #   WANDB_PROJ, WANDB_API_KEY, WANDB_ENTITY, WANDB_MODE.
 # VLLM_CONFIG is sourced inside workers for serving arguments and model environment settings.
 # Slurm supplies SLURM_* variables; the shell supplies USER.
@@ -72,8 +73,10 @@ for node in "${nodes[@]}"; do
 done
 exec vllm-router --host 0.0.0.0 --port "$ROUTER_SERVER_PORT" \
     --worker-urls "${urls[@]}" --policy cache_aware \
-    --balance-abs-threshold 10 --balance-rel-threshold 1.5 \
+    --balance-abs-threshold "${ROUTER_BALANCE_ABS_THRESHOLD:-40}" \
+    --balance-rel-threshold "${ROUTER_BALANCE_REL_THRESHOLD:-2}" \
     --intra-node-data-parallel-size 1 --request-timeout-secs 86400 \
+    --prometheus-host 0.0.0.0 --prometheus-port 29000 \
     --log-level info
 ROUTER
 )
@@ -85,6 +88,19 @@ gym_args=("$@")
 eval "set -- $GYM_RUN_ARGS"
 gym_run_args=("$@")
 set -euo pipefail
+
+# Copy the read-only development source into this container's private filesystem.
+if [[ -d /mnt/gym-dev ]]; then
+    echo "Copying development Gym checkout into the container"
+    rm -rf /opt/nemo-gym
+    mkdir -p /opt/nemo-gym
+    tar -C /mnt/gym-dev \
+        --exclude=.git --exclude=.env --exclude=env.yaml \
+        --exclude=.venv --exclude=__pycache__ --exclude='*.egg-info' \
+        --exclude=cache --exclude=.cache --exclude=logs --exclude=results \
+        --exclude=runs --exclude=wandb --exclude='swe_*_setup' \
+        -cf - . | tar -C /opt/nemo-gym -xf -
+fi
 
 source /opt/nemo_gym_venv/bin/activate
 cd /opt/nemo-gym
@@ -107,6 +123,7 @@ if [[ "$GYM_INFERENCE_METRICS_ENABLED" == true ]]; then
                     "$node_index" "$replica" "${nodes[node_index]}" "$((8001 + replica))"
             done
         done
+        printf '  router_endpoints:\n    main: "http://%s:29000/metrics"\n' "$ROUTER_NODE"
     } > "$inference_metrics_config"
     gym_run_args+=(--config "$inference_metrics_config")
 fi
