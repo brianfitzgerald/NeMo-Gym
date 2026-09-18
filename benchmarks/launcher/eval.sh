@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export VLLM_CONTAINER=${VLLM_CONTAINER:-registry-1.docker.io#vllm/vllm-openai:v0.29.0-aarch64}
-
 launcher_dir=$(realpath "$(dirname -- "${BASH_SOURCE[0]}")")
 gym_root=$(realpath "$launcher_dir/../..")
+
+if [[ -f "$launcher_dir/.env" ]]; then
+    source "$launcher_dir/.env"
+fi
+export VLLM_CONTAINER=${VLLM_CONTAINER:-registry-1.docker.io#vllm/vllm-openai:v0.29.0-aarch64}
 
 checkpoint=""
 profile=""
