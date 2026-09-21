@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Lightning 3.5 BF16, TP1, native MTP from the served checkpoint.
 MODEL_NAME=lightning35-bf16
+# Pin to the nightly the Sep 20 TB 2.1 runs used (0.29.1rc1.dev422+gd05da62e9).
+# Later nightlies renamed --enable-mamba-fine-grained-prefix-cache.
+export VLLM_CONTAINER="registry-1.docker.io#vllm/vllm-openai:nightly-d05da62e9ccdf8e342b15bf6785d83224cc165af"
 export ROUTER_BALANCE_ABS_THRESHOLD=40
 export ROUTER_BALANCE_REL_THRESHOLD=2
 # The checkpoint declares 256K; explicitly allow the 1M serving limit.
