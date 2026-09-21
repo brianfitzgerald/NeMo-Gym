@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 source "$(dirname -- "${BASH_SOURCE[0]}")/fast_common.sh"
-BENCHMARK=tb21smoke4
-BENCHMARK_CONFIG=benchmarks/terminal_bench_2_1/terminus_2_smoke4.yaml
+BENCHMARK=swe_multilingual_fast
+BENCHMARK_CONFIG=benchmarks/swebench/multilingual/opencode_fast.yaml
 BENCHMARK_CONCURRENCY=512
