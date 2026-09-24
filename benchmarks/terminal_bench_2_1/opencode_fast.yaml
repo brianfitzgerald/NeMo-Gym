@@ -7,6 +7,8 @@ terminal_bench_2_1_opencode_sandboxed_agent:
   responses_api_agents:
     opencode_sandboxed_agent:
       sandbox_timeout: 3600
+      # Most TB 2.1 images lack curl; upload a pre-downloaded OpenCode binary matching opencode_version.
+      local_opencode_binary_path: ${oc.env:OPENCODE_BINARY_PATH,null}
       datasets:
         - name: terminal_bench_2_1
           type: benchmark

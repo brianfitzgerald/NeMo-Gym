@@ -192,13 +192,37 @@ class TestOpenCodeSandboxedAgent:
 
         assert expected_usages == actual_usages
 
-    async def test_responses_sanity(self, opencode_export_test_data: Dict[str, Any], monkeypatch: MonkeyPatch) -> None:
+    @mark.parametrize(
+        "local_binary, remote_binary, expected_install",
+        [
+            (None, None, "curl -fL"),
+            (None, "/mnt/opencode", "--binary /mnt/opencode"),
+            (
+                "/host/opencode",
+                "/mnt/opencode",
+                "install -m 0755 /tmp/nemo-gym-opencode/opencode $HOME/.opencode/bin/opencode",
+            ),
+        ],
+    )
+    async def test_responses_sanity(
+        self,
+        opencode_export_test_data: Dict[str, Any],
+        monkeypatch: MonkeyPatch,
+        local_binary: str | None,
+        remote_binary: str | None,
+        expected_install: str,
+    ) -> None:
         config = self._create_config()
+        config.local_opencode_binary_path = local_binary
+        config.remote_opencode_binary_path = remote_binary
+        config.remote_opencode_install_script_path = "/mnt/install.sh" if remote_binary else None
         server = OpenCodeSandboxedAgent(config=config, server_client=MagicMock(spec=ServerClient))
 
         sandbox_mock = MagicMock()
+        mkdir_results = [SimpleNamespace(stdout="", stderr="", return_code=0, error_type=None)] if local_binary else []
         sandbox_mock.exec = AsyncMock(
             side_effect=[
+                *mkdir_results,
                 SimpleNamespace(
                     stdout="Shell: /bin/bash\nOpenCode run finished", stderr="", return_code=0, error_type=None
                 ),
@@ -207,6 +231,7 @@ class TestOpenCodeSandboxedAgent:
             ]
         )
         sandbox_mock.download = AsyncMock()
+        sandbox_mock.upload = AsyncMock()
         monkeypatch.setattr(server, "_sandbox_id_to_sandbox", {"": sandbox_mock})
         monkeypatch.setattr(server, "_create_opencode_config", AsyncMock(return_value=dict()))
 
@@ -313,7 +338,13 @@ class TestOpenCodeSandboxedAgent:
 
         assert expected_response == actual_response
         assert not any(key.startswith("_ng_") for key in server._sandbox_id_to_run_result[""])
-        assert "XDG_DATA_HOME" not in sandbox_mock.exec.await_args_list[0].kwargs["command"]
+        run_command = sandbox_mock.exec.await_args_list[len(mkdir_results)].kwargs["command"]
+        assert "XDG_DATA_HOME" not in run_command
+        assert expected_install in run_command
+        if local_binary:
+            sandbox_mock.upload.assert_awaited_once_with(local_binary, "/tmp/nemo-gym-opencode/opencode")
+        else:
+            sandbox_mock.upload.assert_not_awaited()
 
     def test_agent_sandbox_observation_classifies_timeout_errors(self) -> None:
         server = OpenCodeSandboxedAgent(

@@ -395,6 +395,8 @@ class OpenCodeSandboxedAgentConfig(BaseResponsesAPIAgentConfig):
     remote_opencode_install_script_path: Optional[str] = None
     remote_opencode_binary_path: Optional[str] = None
     remote_opencode_musl_binary_path: Optional[str] = None
+    # OpenCode binary on the Gym host, uploaded into each sandbox; takes precedence over the remote paths.
+    local_opencode_binary_path: Optional[str] = None
     opencode_config: Dict[str, Any] = Field(default_factory=dict)
     opencode_max_context_window: int
     opencode_chunk_timeout_ms: int = Field(
@@ -681,7 +683,14 @@ class OpenCodeSandboxedAgent(SimpleResponsesAPIAgent):
 
         opencode_thinking_str = "--thinking"
 
-        if self.config.remote_opencode_binary_path and self.config.remote_opencode_install_script_path:
+        if self.config.local_opencode_binary_path:
+            staged_binary = "/tmp/nemo-gym-opencode/opencode"
+            await sandbox.exec(command="mkdir -p /tmp/nemo-gym-opencode")
+            await sandbox.upload(self.config.local_opencode_binary_path, staged_binary)
+            install_str = (
+                f"mkdir -p $HOME/.opencode/bin && install -m 0755 {staged_binary} $HOME/.opencode/bin/opencode"
+            )
+        elif self.config.remote_opencode_binary_path and self.config.remote_opencode_install_script_path:
             if self.config.remote_opencode_musl_binary_path:
                 install_str = _build_remote_opencode_install_command(
                     install_script_path=self.config.remote_opencode_install_script_path,

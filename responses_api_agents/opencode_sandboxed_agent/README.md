@@ -64,6 +64,9 @@ swebench_verified_opencode_sandboxed_agent:
       remote_opencode_musl_binary_path: null
 ```
 
+Alternatively, set `local_opencode_binary_path` to a binary on the Gym host. The agent
+uploads it into each sandbox, and it takes precedence over the remote paths.
+
 The staged binary determines the installed version and must match the sandbox's
 architecture and libc. Keep `remote_opencode_musl_binary_path: null` with the upstream
 installer; the dual-binary mode requires a custom installer supporting
