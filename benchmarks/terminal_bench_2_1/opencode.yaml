@@ -10,6 +10,8 @@ terminal_bench_2_1_opencode_sandboxed_agent:
   _inherit_from: opencode_sandboxed_agent
   responses_api_agents:
     opencode_sandboxed_agent:
+      # Matches the Nemotron reference evals (Harbor 0.6.4); bash requires `description` before 1.17.10.
+      opencode_version: 1.14.33
       resources_server:
         type: resources_servers
         name: terminal_bench_2_1_opencode_resources_server
