@@ -12,7 +12,11 @@
 : "${TB21_SUBSET:?Set TB21_SUBSET to the filtered benchmark.jsonl}"
 VLLM_CONFIG="$(dirname -- "${BASH_SOURCE[0]}")/${VLLM_PROFILE:-vllm_profile_fast.sh}"
 BENCHMARK=tb21opencodeabl
-BENCHMARK_CONFIG=benchmarks/terminal_bench_2_1/opencode_fast_subset.yaml
+# The subset path is written into a generated config: environment variables do not reach the OmegaConf resolver in the job.
+_gym_root="$(realpath "$(dirname -- "${BASH_SOURCE[0]}")/../../..")"
+mkdir -p "$_gym_root/benchmarks/terminal_bench_2_1/subsets"
+BENCHMARK_CONFIG="benchmarks/terminal_bench_2_1/subsets/opencode_fast_$(basename "${TB21_SUBSET%.jsonl}").yaml"
+sed "s#\${oc.env:TB21_SUBSET}#$(realpath "$TB21_SUBSET")#" "$_gym_root/benchmarks/terminal_bench_2_1/opencode_fast_subset.yaml" > "$_gym_root/$BENCHMARK_CONFIG"
 BENCHMARK_CONCURRENCY=64
 P=policy_model.responses_api_models.vllm_model
 BENCHMARK_EXTRA_ARGS=(
