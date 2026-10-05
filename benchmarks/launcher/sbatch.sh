@@ -7,6 +7,8 @@ set -euo pipefail
 #   GYM_CONTAINER, VLLM_CONTAINER, ROUTER_CONTAINER  image paths or registry refs
 #   MOUNTS                             Pyxis container mounts
 #   REPLICAS_PER_NODE                   workers per node
+#   GPUS_PER_REPLICA (optional, default 1)  GPUs per worker, for tensor-parallel models
+#   SBATCH_EXCLUDE (optional)            nodes to skip, passed to sbatch --exclude
 #   NUM_NODES (optional, default 1)     requested allocation size
 #   EXPERIMENT_NAME, RUNS_DIR, BENCHMARK run naming and output location
 #   OPENSANDBOX_DOMAIN, OPENSANDBOX_API_KEY
@@ -23,14 +25,15 @@ export ROUTER_SERVER_PORT=8000
 printf -v GYM_ARGS '%q ' "$@"
 export GYM_ARGS
 
-# 2) Inference — configured number of TP1 replicas per node.
+# 2) Inference — configured number of replicas per node, each on GPUS_PER_REPLICA GPUs.
 export serving_command=$(cat <<'SERVING'
 #!/usr/bin/env bash
 set -euo pipefail
 source "$VLLM_CONFIG"
 host=$(hostname)
 IFS=, read -r -a gpus <<< "${CUDA_VISIBLE_DEVICES:-0,1,2,3}"
-(( ${#gpus[@]} >= REPLICAS_PER_NODE )) || { echo "Not enough visible GPUs for replicas" >&2; exit 1; }
+gpus_per_replica=${GPUS_PER_REPLICA:-1}
+(( ${#gpus[@]} >= REPLICAS_PER_NODE * gpus_per_replica )) || { echo "Not enough visible GPUs for replicas" >&2; exit 1; }
 logs="$RUN_DIR/inference${RUN_NAME:+-$SLURM_JOB_ID}"
 mkdir -p "$logs"
 pids=()
@@ -46,7 +49,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 for ((replica=0; replica<REPLICAS_PER_NODE; replica++)); do
-    CUDA_VISIBLE_DEVICES="${gpus[replica]}" \
+    replica_gpus=("${gpus[@]:replica * gpus_per_replica:gpus_per_replica}")
+    CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${replica_gpus[*]}")" \
     vllm serve "$CHECKPOINT" --served-model-name "$MODEL_NAME" \
         "${VLLM_COMMON_ARGS[@]}" --host "$host" --port "$((8001 + replica))" \
         > "$logs/$host-replica$replica.log" 2>&1 &
@@ -208,7 +212,7 @@ else
     naming=(--job-name="gym-$EXPERIMENT_NAME-$USER" --output="$RUNS_DIR/%j-$BENCHMARK/slurm.log")
 fi
 job=$(sbatch --hold --parsable --nodes="$NUM_NODES" --ntasks-per-node=1 --gpus-per-node=4 \
-    --exclusive --segment="$NUM_NODES" --time=04:00:00 \
+    --exclusive --segment="$NUM_NODES" --time=04:00:00 ${SBATCH_EXCLUDE:+--exclude="$SBATCH_EXCLUDE"} \
     "${naming[@]}" \
     --wrap 'exec bash -c "$batch_command"')
 job=${job%%;*}

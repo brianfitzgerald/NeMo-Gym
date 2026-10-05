@@ -74,3 +74,17 @@ still go to the shared run directory.
 Set `GYM_INFERENCE_METRICS_ENABLED=true` to scrape vLLM replicas and the router
 and publish their counters and gauges through the configured exporters (including W&B).
 Router metrics appear under `router/main/`; vLLM metrics remain under `vllm/`.
+
+# Nemotron 3.5 Super
+
+Profiles in `super/` serve one TP4 expert-parallel replica per node (`GPUS_PER_REPLICA=4`,
+`REPLICAS_PER_NODE=1`) with the aggregated form of the certified Super 3.5 vLLM configuration
+(`benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh`), temperature 1.0, top_p 0.95,
+and no reply-length cap. Effort defaults to the chat template's max; `EFFORT=high` or `none`
+select the other modes of the SFT template. Each benchmark has an OpenCode/Terminus 2 profile and a
+pool profile (`*_pool.sh`). `NUM_NODES` overrides the profile's node count, and `SBATCH_EXCLUDE`
+skips faulty nodes.
+
+```bash
+bash ./benchmarks/launcher/eval.sh --profile benchmarks/launcher/super/swe_verified.sh --checkpoint /path/to/hf
+```
