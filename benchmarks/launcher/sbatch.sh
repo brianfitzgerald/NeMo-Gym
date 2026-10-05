@@ -9,6 +9,7 @@ set -euo pipefail
 #   REPLICAS_PER_NODE                   workers per node
 #   GPUS_PER_REPLICA (optional, default 1)  GPUs per worker, for tensor-parallel models
 #   SBATCH_EXCLUDE (optional)            nodes to skip, passed to sbatch --exclude
+#   GIT_MIRROR_DIR (optional)            bare-repo mirrors (<org>/<repo>.git) used in place of https://github.com/
 #   NUM_NODES (optional, default 1)     requested allocation size
 #   EXPERIMENT_NAME, RUNS_DIR, BENCHMARK run naming and output location
 #   OPENSANDBOX_DOMAIN, OPENSANDBOX_API_KEY
@@ -110,6 +111,11 @@ fi
 
 source /opt/nemo_gym_venv/bin/activate
 cd /opt/nemo-gym
+
+# Fetch GitHub dependencies from local mirrors when GitHub is not reachable.
+if [[ -n "${GIT_MIRROR_DIR:-}" ]]; then
+    export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$GIT_MIRROR_DIR/.insteadOf" GIT_CONFIG_VALUE_0=https://github.com/
+fi
 
 # Pin Ray in Gym so the main environment and server venvs agree.
 uv add --no-sync 'ray[default]==2.56.1'
