@@ -376,9 +376,9 @@ def test_router_counters_labels_and_reset():
     def sample(value, now):
         return collector.parse(
             "main",
-            '# TYPE vllm_router_processed_requests_total counter\n'
+            "# TYPE vllm_router_processed_requests_total counter\n"
             f'vllm_router_processed_requests_total{{worker="http://worker:8001"}} {value}\n'
-            '# TYPE vllm_router_worker_load gauge\n'
+            "# TYPE vllm_router_worker_load gauge\n"
             'vllm_router_worker_load{worker="http://worker:8001"} 12\n',
             now,
         )
@@ -425,8 +425,7 @@ def test_router_only_and_endpoint_validation():
 def test_router_routes_are_readable_metric_paths():
     collector = InferenceMetricsCollector(config())
     payload = (
-        '# TYPE vllm_router_requests_total counter\n'
-        'vllm_router_requests_total{route="/v1/chat/completions"} 10\n'
+        '# TYPE vllm_router_requests_total counter\nvllm_router_requests_total{route="/v1/chat/completions"} 10\n'
     )
     first = collector.parse("main", payload, 10)
     assert first == {"router/main/requests_total/route/v1/chat/completions": 10}

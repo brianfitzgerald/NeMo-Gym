@@ -30,9 +30,9 @@ its existing non-streaming backend call and re-emitting it as an SSE stream. Thi
 
 Only the SSE envelope is synthesized -- there is no true token-by-token streaming. The backend
 call completes before the first byte is emitted, so the model server's retry and
-error-normalization behavior is fully preserved on this path. This path is intended for eval-only
-streaming clients: token ids and logprobs from the backend response are not carried in the
-``chat.completion.chunk`` schema, and a client that does not set ``stream_options.include_usage``
+error-normalization behavior is fully preserved on this path. External staging stores training
+tokens separately; token ids and training logprobs are not carried in the ``chat.completion.chunk``
+schema. A client that does not set ``stream_options.include_usage``
 gets no usage chunk, so a model-call record reconstructed from this stream will lack token counts.
 """
 
@@ -52,6 +52,29 @@ _PARAM_FIELDS = frozenset(NeMoGymChatCompletionCreateParamsNonStreaming.model_fi
 def _wants_usage(stream_options: Any) -> bool:
     """Whether the client asked for a terminal usage chunk (``stream_options.include_usage``)."""
     return bool(isinstance(stream_options, dict) and stream_options.get("include_usage"))
+
+
+def drop_prompt_cache_hints(body: dict[str, Any]) -> dict[str, Any]:
+    """Drop Anthropic-style ``cache_control`` hints from content parts and tool specs.
+
+    Some OpenAI-compatible clients attach them; no Gym backend acts on them and the strict
+    params models reject unknown fields.
+    """
+
+    def without_hint(value: Any) -> Any:
+        return {k: v for k, v in value.items() if k != "cache_control"} if isinstance(value, dict) else value
+
+    def clean_message(message: Any) -> Any:
+        if isinstance(message, dict) and isinstance(message.get("content"), list):
+            return {**message, "content": [without_hint(part) for part in message["content"]]}
+        return message
+
+    cleaned = dict(body)
+    if isinstance(body.get("messages"), list):
+        cleaned["messages"] = [clean_message(message) for message in body["messages"]]
+    if isinstance(body.get("tools"), list):
+        cleaned["tools"] = [without_hint(tool) for tool in body["tools"]]
+    return cleaned
 
 
 def sanitize_streaming_chat_body(body: dict[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -101,9 +124,9 @@ def _chunk(completion: dict[str, Any], choices: list[dict[str, Any]], usage: Any
 def _choice_deltas(index: int, choice: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """Yield the ``chat.completion.chunk`` choice deltas for one completed choice.
 
-    A role delta opens the choice; reasoning, content, and tool-call deltas follow (each emitted
+    A role delta opens the choice; reasoning, content, refusal, and tool-call deltas follow (each emitted
     only when present); a terminal delta carries the ``finish_reason``. Splitting the message this
-    way keeps every field a client tracks (role, reasoning, content, tool-call name/arguments,
+    way keeps every field a client tracks (role, reasoning, content, refusal, tool-call name/arguments,
     finish reason) in the delta position that client expects, even though it is a single logical
     chunk sequence rather than incremental tokens.
     """
@@ -119,6 +142,10 @@ def _choice_deltas(index: int, choice: dict[str, Any]) -> Iterator[dict[str, Any
     content = message.get("content")
     if content:
         yield {"index": index, "delta": {"content": content}, "finish_reason": None}
+
+    refusal = message.get("refusal")
+    if refusal:
+        yield {"index": index, "delta": {"refusal": refusal}, "finish_reason": None}
 
     tool_calls = message.get("tool_calls")
     if tool_calls:
@@ -141,7 +168,7 @@ def _choice_deltas(index: int, choice: dict[str, Any]) -> Iterator[dict[str, Any
 def synthesize_chat_completion_sse(completion: dict[str, Any], include_usage: bool = False) -> Iterator[str]:
     """Re-emit a complete Chat Completion object as a ``chat.completion.chunk`` SSE stream.
 
-    Emits, per choice, a role chunk -> optional reasoning/content/tool-call chunks -> a terminal
+    Emits, per choice, a role chunk -> optional reasoning/content/refusal/tool-call chunks -> a terminal
     chunk carrying ``finish_reason``. When ``include_usage`` is set and the completion reports
     usage, a final ``choices: []`` chunk carries the usage block (OpenAI's contract). The stream
     always ends with the ``data: [DONE]`` sentinel streaming clients treat as terminal.

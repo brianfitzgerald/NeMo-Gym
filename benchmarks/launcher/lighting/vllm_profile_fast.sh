@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 # Lightning 3.5 BF16, TP1, native MTP from the served checkpoint.
 MODEL_NAME=lightning35-bf16
 # Pin to the nightly the Sep 20 TB 2.1 runs used (0.29.1rc1.dev422+gd05da62e9).
