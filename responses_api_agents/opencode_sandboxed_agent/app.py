@@ -402,6 +402,9 @@ class OpenCodeSandboxedAgentConfig(BaseResponsesAPIAgentConfig):
     opencode_chunk_timeout_ms: int = Field(
         default=600000, gt=0, description="HTTP stream chunk timeout in milliseconds."
     )
+    opencode_request_timeout_ms: Optional[int] = Field(
+        default=None, gt=0, description="Whole-request timeout in milliseconds; None disables it."
+    )
 
     # Sandbox config
     sandbox_provider: str
@@ -561,7 +564,7 @@ class OpenCodeSandboxedAgent(SimpleResponsesAPIAgent):
                     "options": {
                         "baseURL": base_url,
                         "apiKey": "dummy_key",  # pragma: allowlist secret
-                        "timeout": False,
+                        "timeout": self.config.opencode_request_timeout_ms or False,
                         "chunkTimeout": self.config.opencode_chunk_timeout_ms,
                     },
                     "models": {

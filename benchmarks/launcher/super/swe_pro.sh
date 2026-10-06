@@ -4,6 +4,8 @@
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 BENCHMARK=swe_pro
 BENCHMARK_CONFIG=benchmarks/swebench/pro/opencode_fast.yaml
-BENCHMARK_CONCURRENCY=1024
+BENCHMARK_CONCURRENCY=256
 export NUM_NODES=${NUM_NODES:-8}
 BENCHMARK_EXTRA_ARGS+=("++swebench_pro_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")
+# Request timeout so a call dropped on the sandbox-to-model path fails instead of hanging.
+BENCHMARK_EXTRA_ARGS+=("++swebench_pro_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.opencode_request_timeout_ms=600000")
