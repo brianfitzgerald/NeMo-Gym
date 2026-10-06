@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 BENCHMARK=swe_multilingual
-BENCHMARK_CONFIG=benchmarks/swebench/multilingual/opencode.yaml
+BENCHMARK_CONFIG=benchmarks/swebench/multilingual/opencode_fast.yaml
 BENCHMARK_CONCURRENCY=1024
 export NUM_NODES=${NUM_NODES:-4}

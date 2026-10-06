@@ -59,9 +59,6 @@ MOUNTS+=",$VLLM_CONFIG:$VLLM_CONFIG:ro"
 if [[ -n ${GYM_DEV_CHECKOUT:-} ]]; then
     MOUNTS+=",$(realpath "$GYM_DEV_CHECKOUT"):/mnt/gym-dev:ro"
 fi
-if [[ -n ${POOL_BINARY:-} ]]; then
-    MOUNTS+=",$POOL_BINARY:$POOL_BINARY:ro"
-fi
 if [[ -n ${GIT_MIRROR_DIR:-} ]]; then
     MOUNTS+=",$GIT_MIRROR_DIR:$GIT_MIRROR_DIR:ro"
 fi

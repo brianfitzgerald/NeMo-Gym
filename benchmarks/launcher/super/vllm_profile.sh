@@ -33,4 +33,5 @@ VLLM_COMMON_ARGS=(
     --max-num-seqs 1024
     --data-parallel-size-local 1
     --tensor-parallel-size 4
+    --reasoning-config '{"reasoning_start_str": "<think>", "reasoning_end_str": "</think>"}'
 )

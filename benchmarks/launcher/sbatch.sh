@@ -9,7 +9,6 @@ set -euo pipefail
 #   REPLICAS_PER_NODE                   workers per node
 #   GPUS_PER_REPLICA (optional, default 1)  GPUs per worker, for tensor-parallel models
 #   SBATCH_EXCLUDE (optional)            nodes to skip, passed to sbatch --exclude
-#   POOL_BINARY (optional)               local pool binary mounted for pool profiles (set by eval.sh)
 #   GIT_MIRROR_DIR (optional)            bare-repo mirrors (<org>/<repo>.git) used in place of https://github.com/
 #   NUM_NODES (optional, default 1)     requested allocation size
 #   EXPERIMENT_NAME, RUNS_DIR, BENCHMARK run naming and output location
