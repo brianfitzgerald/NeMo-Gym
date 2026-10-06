@@ -6,3 +6,5 @@ BENCHMARK=swe_pro_pool
 BENCHMARK_CONFIG=benchmarks/swebench/pro/pool.yaml
 BENCHMARK_CONCURRENCY=512
 export NUM_NODES=${NUM_NODES:-8}
+# POOL_BINARY uploads a local pool binary into each sandbox, for task images without curl.
+[[ -z "${POOL_BINARY:-}" ]] || BENCHMARK_EXTRA_ARGS+=("++swebench_pro_pool_sandboxed_agent.responses_api_agents.pool_sandboxed_agent.local_pool_binary_path=$POOL_BINARY")
