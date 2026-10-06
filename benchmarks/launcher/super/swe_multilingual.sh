@@ -6,3 +6,4 @@ BENCHMARK=swe_multilingual
 BENCHMARK_CONFIG=benchmarks/swebench/multilingual/opencode_fast.yaml
 BENCHMARK_CONCURRENCY=1024
 export NUM_NODES=${NUM_NODES:-4}
+BENCHMARK_EXTRA_ARGS+=("++swebench_multilingual_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")

@@ -6,3 +6,4 @@ BENCHMARK=swe_pro_pool
 BENCHMARK_CONFIG=benchmarks/swebench/pro/pool_fast.yaml
 BENCHMARK_CONCURRENCY=512
 export NUM_NODES=${NUM_NODES:-8}
+BENCHMARK_EXTRA_ARGS+=("++swebench_pro_pool_sandboxed_agent.responses_api_agents.pool_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")

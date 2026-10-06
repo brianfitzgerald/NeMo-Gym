@@ -6,3 +6,4 @@ BENCHMARK=swe_multilingual_pool
 BENCHMARK_CONFIG=benchmarks/swebench/multilingual/pool_fast.yaml
 BENCHMARK_CONCURRENCY=512
 export NUM_NODES=${NUM_NODES:-4}
+BENCHMARK_EXTRA_ARGS+=("++swebench_multilingual_pool_sandboxed_agent.responses_api_agents.pool_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")

@@ -82,7 +82,8 @@ Profiles in `super/` serve one TP4 expert-parallel replica per node (`GPUS_PER_R
 (`benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh`) with `--reasoning-config`,
 temperature 1.0 and top_p 0.95. They use the fast-profile settings: `max_tokens=49152`,
 `thinking_token_budget=32768`, failures routed to the sidecar, and the `*_fast.yaml` benchmark configs
-(1 repeat, 1 h agent timeout; Terminus 2 with 250 turns and a 49,152-token output limit). Effort
+(1 repeat; Terminus 2 with 250 turns and a 49,152-token output limit), with the agent timeout kept
+at 3 h (`SANDBOX_TIMEOUT`, default 10800). Effort
 defaults to the chat template's max; `EFFORT=high` or `none` select the other modes of the SFT
 template. Each benchmark has an OpenCode/Terminus 2 profile and a pool profile (`*_pool.sh`).
 `POOL_BINARY_PATH` uploads a local pool binary for images without curl, `GIT_MIRROR_DIR` serves

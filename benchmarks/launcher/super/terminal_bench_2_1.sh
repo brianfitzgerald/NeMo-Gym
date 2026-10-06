@@ -6,3 +6,4 @@ BENCHMARK=tb21
 BENCHMARK_CONFIG=benchmarks/terminal_bench_2_1/terminus_2_fast_r1.yaml
 BENCHMARK_CONCURRENCY=512
 export NUM_NODES=${NUM_NODES:-8}
+BENCHMARK_EXTRA_ARGS+=("++terminal_bench_2_1_terminus_2_sandboxed_agent.responses_api_agents.terminus_2_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")

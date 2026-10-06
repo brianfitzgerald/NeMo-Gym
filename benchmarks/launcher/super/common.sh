@@ -5,6 +5,8 @@
 # Effort is the chat template default (max); EFFORT=high or none select the SFT template's other modes.
 VLLM_CONFIG="$(dirname -- "${BASH_SOURCE[0]}")/vllm_profile.sh"
 export REPLICAS_PER_NODE=1 GPUS_PER_REPLICA=4
+# Agent wall-clock limit per rollout; the fast configs' 1 h cuts off slow checkpoints under full load.
+SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-10800}
 BENCHMARK_EXTRA_ARGS=(
     --config benchmarks/nemotron_3.5_super/policy_model_override.yaml
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.temperature=1.0
