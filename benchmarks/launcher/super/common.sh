@@ -7,12 +7,14 @@ VLLM_CONFIG="$(dirname -- "${BASH_SOURCE[0]}")/vllm_profile.sh"
 export REPLICAS_PER_NODE=1 GPUS_PER_REPLICA=4
 # Agent wall-clock limit per rollout.
 SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-3600}
+# Reasoning cap per reply.
+THINKING_BUDGET=${THINKING_BUDGET:-16384}
 BENCHMARK_EXTRA_ARGS=(
     --config benchmarks/nemotron_3.5_super/policy_model_override.yaml
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.temperature=1.0
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.top_p=0.95
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.max_tokens=49152
-    ++policy_model.responses_api_models.vllm_model.sampling_overrides.thinking_token_budget=16384
+    ++policy_model.responses_api_models.vllm_model.sampling_overrides.thinking_token_budget=$THINKING_BUDGET
     ++model_endpoint_readiness_timeout_seconds=1800
     # a failed agent /run (sandbox infra error -> HTTP 500) becomes a sidecar failure row instead of aborting the run
     ++route_failures_to_sidecar=true

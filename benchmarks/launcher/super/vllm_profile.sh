@@ -35,3 +35,7 @@ VLLM_COMMON_ARGS=(
     --tensor-parallel-size 4
     --reasoning-config '{"reasoning_start_str": "<think>", "reasoning_end_str": "</think>"}'
 )
+# MTP_TOKENS turns on MTP speculative decoding (checkpoints with MTP weights only).
+if [[ -n ${MTP_TOKENS:-} ]]; then
+    VLLM_COMMON_ARGS+=(--speculative-config "{\"method\":\"mtp\",\"num_speculative_tokens\":${MTP_TOKENS}}")
+fi
