@@ -19,6 +19,8 @@ BENCHMARK_EXTRA_ARGS=(
     # a failed agent /run (sandbox infra error -> HTTP 500) becomes a sidecar failure row instead of aborting the run
     ++route_failures_to_sidecar=true
 )
+# SSE_KEEPALIVE_S sends SSE keepalive comments while a buffered streaming reply is pending.
+[[ -z "${SSE_KEEPALIVE_S:-}" ]] || BENCHMARK_EXTRA_ARGS+=("++policy_model.responses_api_models.vllm_model.sse_keepalive_interval_s=$SSE_KEEPALIVE_S")
 case "${EFFORT:-max}" in
   max) ;;
   high) BENCHMARK_EXTRA_ARGS+=("++policy_model.responses_api_models.vllm_model.chat_template_kwargs.low_effort=true") ;;

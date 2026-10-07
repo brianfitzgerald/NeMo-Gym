@@ -21,6 +21,7 @@ response is re-emitted as a synthesized ``chat.completion.chunk`` SSE stream. No
 requests keep the historical strict-validation behavior.
 """
 
+import asyncio
 import json
 from time import time
 from unittest.mock import MagicMock
@@ -447,3 +448,49 @@ class TestSynthesizeSystemFingerprint:
         events = _events("".join(synthesize_chat_completion_sse(completion)))
         assert events
         assert all(event.get("system_fingerprint") == "fp_abc123" for event in events)
+
+
+class _SlowChatModel(_EchoChatModel):
+    delay_s: float = 0.25
+    fail: bool = False
+
+    async def chat_completions(
+        self, body: NeMoGymChatCompletionCreateParamsNonStreaming = Body()
+    ) -> NeMoGymChatCompletion:
+        await asyncio.sleep(self.delay_s)
+        if self.fail:
+            raise RuntimeError("backend failed")
+        return await super().chat_completions(body)
+
+
+def _keepalive_client(interval_s: float, **overrides) -> TestClient:
+    server = _SlowChatModel(
+        config=BaseResponsesAPIModelConfig(
+            host="0.0.0.0", port=8099, entrypoint="", name="", sse_keepalive_interval_s=interval_s
+        ),
+        server_client=MagicMock(spec=ServerClient, global_config_dict={}),
+        **overrides,
+    )
+    return TestClient(server.setup_webserver())
+
+
+class TestStreamingKeepalive:
+    @pytest.mark.parametrize("interval_s, expect_keepalive", [(0.05, True), (0, False)])
+    def test_keepalive_comments_precede_reply(self, interval_s: float, expect_keepalive: bool) -> None:
+        resp = _keepalive_client(interval_s).post(
+            "/v1/chat/completions", json={"stream": True, "messages": [{"role": "user", "content": "slow"}]}
+        )
+        assert resp.status_code == 200
+        assert resp.text.startswith(": keepalive\n\n") is expect_keepalive
+        assert resp.text.endswith("data: [DONE]\n\n")
+        rebuilt = _reconstruct_chat_sse(_parse_sse_events(resp.text.encode()))
+        assert rebuilt["choices"][0]["message"]["content"] == "slow"
+
+    def test_failure_after_keepalive_ends_with_error_event(self) -> None:
+        resp = _keepalive_client(0.05, fail=True).post(
+            "/v1/chat/completions", json={"stream": True, "messages": [{"role": "user", "content": "x"}]}
+        )
+        assert resp.status_code == 200
+        assert resp.text.startswith(": keepalive\n\n")
+        assert resp.text.endswith("data: [DONE]\n\n")
+        assert _events(resp.text)[-1]["error"]["message"] == "backend failed"

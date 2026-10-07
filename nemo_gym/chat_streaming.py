@@ -182,3 +182,9 @@ def synthesize_chat_completion_sse(completion: dict[str, Any], include_usage: bo
         yield _sse_data(_chunk(completion, [], usage=usage))
 
     yield "data: [DONE]\n\n"
+
+
+def synthesize_chat_failure_sse(error: Exception) -> Iterator[str]:
+    """Terminate a committed chat SSE stream with an error event and the ``[DONE]`` sentinel."""
+    yield _sse_data({"error": {"message": str(error), "type": type(error).__name__}})
+    yield "data: [DONE]\n\n"

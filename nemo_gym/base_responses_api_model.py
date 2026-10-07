@@ -37,7 +37,7 @@ import time
 from abc import abstractmethod
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Iterable, Mapping, Optional
 from uuid import uuid4
 
 import orjson
@@ -51,6 +51,7 @@ from nemo_gym.chat_streaming import (
     drop_prompt_cache_hints,
     sanitize_streaming_chat_body,
     synthesize_chat_completion_sse,
+    synthesize_chat_failure_sse,
 )
 from nemo_gym.config_types import ROLLOUT_PATH_PREFIX, TOKEN_CAPTURE_PATH_SEGMENT, ModelServerRef
 from nemo_gym.openai_utils import (
@@ -182,7 +183,11 @@ def _orjson_dispatch_response(content: Any) -> Any:
 
 
 class BaseResponsesAPIModelConfig(BaseRunServerInstanceConfig):
-    pass
+    sse_keepalive_interval_s: float = Field(
+        default=0,
+        ge=0,
+        description="Seconds between SSE keepalive comments while a buffered streaming reply is pending; 0 disables.",
+    )
 
 
 class BaseResponsesAPIModel(BaseServer):
@@ -201,6 +206,32 @@ class SimpleResponsesAPIModel(BaseResponsesAPIModel, SimpleServer):
             events = [event.encode("utf-8") if isinstance(event, str) else event for event in events]
             await self._finalize_served_response(response)
         return StreamingResponse(iter(events), media_type="text/event-stream")
+
+    async def _serve_stream(
+        self,
+        produce: Callable[[], Awaitable[StreamingResponse]],
+        failure_events: Callable[[Exception], Iterable[str]],
+    ) -> StreamingResponse:
+        """Serve a buffered SSE reply, sending keepalive comments while it is pending when enabled."""
+        interval = self.config.sse_keepalive_interval_s
+        if not interval:
+            return await produce()
+        pending = asyncio.create_task(produce())
+
+        async def events() -> AsyncIterator[bytes]:
+            while not (await asyncio.wait({pending}, timeout=interval))[0]:
+                yield b": keepalive\n\n"
+            try:
+                response = pending.result()
+            except Exception as exc:
+                logger.exception("streaming reply failed after keepalive headers were sent")
+                for event in failure_events(exc):
+                    yield event.encode("utf-8")
+                return
+            async for chunk in response.body_iterator:
+                yield chunk if isinstance(chunk, bytes) else chunk.encode("utf-8")
+
+        return StreamingResponse(events(), media_type="text/event-stream")
 
     def setup_webserver(self) -> FastAPI:
         app = FastAPI()
@@ -273,7 +304,10 @@ class SimpleResponsesAPIModel(BaseResponsesAPIModel, SimpleServer):
         except ValidationError as exc:
             raise RequestValidationError([{**error, "loc": ("body", *error["loc"])} for error in exc.errors()])
 
-        return await self._stream_responses(request, params, ns_map)
+        return await self._serve_stream(
+            lambda: self._stream_responses(request, params, ns_map),
+            lambda exc: synthesize_responses_failure_sse(str(exc)),
+        )
 
     async def _stream_responses(
         self, request: Request, params: NeMoGymResponseCreateParamsNonStreaming, ns_map: NamespaceMap
@@ -321,12 +355,18 @@ class SimpleResponsesAPIModel(BaseResponsesAPIModel, SimpleServer):
 
         cleaned, include_usage = sanitize_streaming_chat_body(body)
         params = _validate_chat_params(cleaned)
-        completion = await self._invoke_chat_completions(request, params)
-        completion_json = completion.model_dump(mode="json") if isinstance(completion, BaseModel) else dict(completion)
-        return await self._stream_served_response(
-            completion_json,
-            synthesize_chat_completion_sse(completion_json, include_usage=include_usage),
-        )
+
+        async def produce() -> StreamingResponse:
+            completion = await self._invoke_chat_completions(request, params)
+            completion_json = (
+                completion.model_dump(mode="json") if isinstance(completion, BaseModel) else dict(completion)
+            )
+            return await self._stream_served_response(
+                completion_json,
+                synthesize_chat_completion_sse(completion_json, include_usage=include_usage),
+            )
+
+        return await self._serve_stream(produce, synthesize_chat_failure_sse)
 
     async def _invoke_chat_completions(
         self, request: Request, params: NeMoGymChatCompletionCreateParamsNonStreaming
