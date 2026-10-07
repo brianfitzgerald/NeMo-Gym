@@ -12,7 +12,7 @@ BENCHMARK_EXTRA_ARGS=(
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.temperature=1.0
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.top_p=0.95
     ++policy_model.responses_api_models.vllm_model.sampling_overrides.max_tokens=49152
-    ++policy_model.responses_api_models.vllm_model.sampling_overrides.thinking_token_budget=32768
+    ++policy_model.responses_api_models.vllm_model.sampling_overrides.thinking_token_budget=16384
     ++model_endpoint_readiness_timeout_seconds=1800
     # a failed agent /run (sandbox infra error -> HTTP 500) becomes a sidecar failure row instead of aborting the run
     ++route_failures_to_sidecar=true
