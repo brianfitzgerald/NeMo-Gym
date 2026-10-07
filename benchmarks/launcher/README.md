@@ -93,3 +93,24 @@ GitHub dependencies from local mirrors, `NUM_NODES` overrides the profile's node
 ```bash
 bash ./benchmarks/launcher/eval.sh --profile benchmarks/launcher/super/swe_verified.sh --checkpoint /path/to/hf
 ```
+
+Environment toggles for eval-setting tests: `THINKING_BUDGET` (default 16384), `MAX_TOKENS` (default 49152),
+`SANDBOX_TIMEOUT` (default 3600), `SSE_KEEPALIVE_S` (SSE keepalive comments from the model server while a
+buffered streaming reply is pending; off by default), `POOL_STREAMING` (pool streams and waits up to 55 min
+per call), and `MTP_TOKENS` (MTP speculative decoding).
+
+TB2.1 tests on an SFT checkpoint with long replies (89 tasks, 2 nodes, 1 h agent limit, 30 min OpenCode
+request timeout), 2026-10-06:
+
+| Setting | OpenCode resolved | Timed out / killed | Pool resolved | Pool killed |
+|---|---|---|---|---|
+| 16K budget | 40.4% | 12 / 5 | cancelled | |
+| 16K + `SSE_KEEPALIVE_S=30` | 46.1% | 0 / 10 | streaming fails (exit 1) | |
+| 8K budget | 52.8% | 4 / 9 | 43.8% | 24 |
+| 4K budget | 51.7% | 4 / 8 | 47.2% | 21 |
+| 16K + `MTP_TOKENS=3` | 47.2% | 22 / 7 | 47.2% | 27 |
+
+Gym's model server buffers each reply, so a sandbox call is silent until the reply is ready. On the
+remote-sandbox path, silent calls over about 350 s are sometimes dropped, and OpenCode then waits until its
+request timeout. The keepalive prevents the drops. The remaining timeouts at short budgets come from
+tool-call outputs that run to `max_tokens`.
