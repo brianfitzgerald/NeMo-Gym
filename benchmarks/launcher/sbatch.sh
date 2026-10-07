@@ -17,6 +17,7 @@ set -euo pipefail
 #   GYM_INFERENCE_METRICS_ENABLED      sampler switch supplied by eval.sh
 #   SBATCH_ACCOUNT, SBATCH_PARTITION, SBATCH_QOS    Slurm submission defaults
 # Optional: ROUTER_BALANCE_ABS_THRESHOLD (default 40), ROUTER_BALANCE_REL_THRESHOLD (default 2),
+#   ROUTER_WORKER_STARTUP_TIMEOUT_S (default 1800),
 #   NEMO_GYM_USER (defaults to USER), ROUTER_RUST_LOG,
 #   WANDB_PROJ, WANDB_API_KEY, WANDB_ENTITY, WANDB_MODE.
 # VLLM_CONFIG is sourced inside workers for serving arguments and model environment settings.
@@ -81,6 +82,7 @@ exec vllm-router --host 0.0.0.0 --port "$ROUTER_SERVER_PORT" \
     --balance-abs-threshold "${ROUTER_BALANCE_ABS_THRESHOLD:-40}" \
     --balance-rel-threshold "${ROUTER_BALANCE_REL_THRESHOLD:-2}" \
     --intra-node-data-parallel-size 1 --request-timeout-secs 86400 \
+    --worker-startup-timeout-secs "${ROUTER_WORKER_STARTUP_TIMEOUT_S:-1800}" \
     --prometheus-host 0.0.0.0 --prometheus-port 29000 \
     --log-level info
 ROUTER
