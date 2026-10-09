@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Nemotron 3.5 Super BF16: one TP4 expert-parallel replica per node, no speculative decoding.
+# Nemotron 3.5 Super BF16: expert-parallel replicas of GPUS_PER_REPLICA GPUs (TP4 by default), no speculative decoding by default.
 # Flags are the aggregated form of benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh
 # (common and prefill arguments without the KV connector), the certified Super 3.5 eval configuration.
 MODEL_NAME=super35
@@ -32,7 +32,7 @@ VLLM_COMMON_ARGS=(
     --max-num-batched-tokens 135680
     --max-num-seqs 1024
     --data-parallel-size-local 1
-    --tensor-parallel-size 4
+    --tensor-parallel-size "${GPUS_PER_REPLICA:-4}"
     --reasoning-config '{"reasoning_start_str": "<think>", "reasoning_end_str": "</think>"}'
 )
 # MTP_TOKENS turns on MTP speculative decoding (checkpoints with MTP weights only).

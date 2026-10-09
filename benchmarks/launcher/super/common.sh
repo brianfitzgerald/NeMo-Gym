@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Shared Super 3.5 settings: one 4-GPU replica per node, Super sampling, and the fast-profile reply and reasoning caps.
+# Shared Super 3.5 settings: 4-GPU nodes split into replicas of SUPER_TP GPUs (default one TP4 replica), Super sampling, and the fast-profile reply and reasoning caps.
 # Effort is the chat template default (max); EFFORT=high or none select the SFT template's other modes.
 VLLM_CONFIG="$(dirname -- "${BASH_SOURCE[0]}")/vllm_profile.sh"
-export REPLICAS_PER_NODE=1 GPUS_PER_REPLICA=4
+SUPER_TP=${SUPER_TP:-4}
+export GPUS_PER_REPLICA=$SUPER_TP REPLICAS_PER_NODE=$((4 / SUPER_TP))
 # Agent wall-clock limit per rollout.
 SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-3600}
 # Reasoning cap and total output cap per reply.
