@@ -89,6 +89,8 @@ template. Each benchmark has an OpenCode/Terminus 2 profile and a pool profile (
 `POOL_BINARY_PATH` uploads a local pool binary for images without curl, `GIT_MIRROR_DIR` serves
 GitHub dependencies from local mirrors, `NUM_NODES` overrides the profile's node count, and
 `SBATCH_EXCLUDE` skips faulty nodes.
+`terminal_bench_2_1_opencode.sh`, `swe_verified.sh` and `swe_multilingual.sh` override these defaults with
+the settings validated on 2 nodes (below).
 
 ```bash
 bash ./benchmarks/launcher/eval.sh --profile benchmarks/launcher/super/swe_verified.sh --checkpoint /path/to/hf
@@ -117,8 +119,8 @@ tool-call outputs that run to `max_tokens`.
 
 `terminal_bench_2_1_opencode.sh` defaults to the 8-repeat setting validated on 2 nodes: `SUPER_TP=2` (two TP2
 replicas per node), `MTP_TOKENS=5`, concurrency 256 (`CONCURRENCY`), 8K reasoning / 16K reply caps,
-`SSE_KEEPALIVE_S=30` and a 6600 s agent limit. Set `MTP_TOKENS=` for checkpoints without MTP weights. Pass
-`--name NAME --restarts 2` so a failed start or the 4 h job limit resumes the run.
+`SSE_KEEPALIVE_S=30`, a 6600 s agent limit and `detach_background_output`. Set `MTP_TOKENS=` for checkpoints
+without MTP weights. Pass `--name NAME --restarts 2` so a failed start or the 4 h job limit resumes the run.
 
 Throughput tests on an SFT checkpoint, TB2.1 OpenCode, 2 nodes, 10-60 min after start, 2026-10-08:
 
@@ -142,6 +144,30 @@ than TP4 runs without MTP.
 | 3600 s | 2.0 h | 138 (19%) | 52.7% | 1.5 |
 | 6600 s | 2.7 h | 69 (9.7%) | 53.5% | 0.7 |
 
-At 6600 s, 20 of the 69 kills are in install-windows-3.11, mailman and qemu-alpine-ssh, where earlier runs showed
-tool calls that do not return after the agent starts a background service. A Gym server sometimes fails to start
+At 6600 s, 19 of the 69 kills are rollouts stuck in one tool call, 16 of them in install-windows-3.11 and mailman.
+The OpenCode bash tool waits until its output pipe closes, so a background process that keeps the pipe open (for
+example `mailman start` or `nginx`) blocks the tool call until the agent limit. The profile sets
+`detach_background_output`: bash commands run through `detached_shell.sh`, which writes the output to a file, so
+the tool call returns when the command exits. `DETACH_BACKGROUND_OUTPUT=false` turns it off.
+
+| 8 repeats, 6600 s | Wall time | Killed rollouts | Stuck in a tool call | mailman | Mean reward | SE across repeats |
+|---|---|---|---|---|---|---|
+| Without `detach_background_output` | 2.7 h | 69 | 19 | 0 / 8 | 53.5% | 0.7 |
+| With `detach_background_output` | 3.0 h | 76 | 3 | 7 / 8 | 53.9% | 1.2 |
+
+With the fix, the rollouts that were stuck continue to work, so more of them reach the agent limit while active.
+The 3 that remain stuck run a long foreground command.
+
+`swe_verified.sh` and `swe_multilingual.sh` use the same model settings (`SUPER_TP=2`, MTP 5, 8K / 16K caps,
+`SSE_KEEPALIVE_S=30`, 6600 s, 2 nodes, concurrency 256), without `detach_background_output`. 1 repeat, 2026-10-10:
+
+| Benchmark | Setting | Wall time | Killed rollouts | Mean reward |
+|---|---|---|---|---|
+| SWE Verified | 16K / 49K caps, no keepalive, 3600 s | | 111 / 500 | 64.0% |
+| SWE Verified | This profile | 1.8 h | 0 / 500 | 72.6% |
+| SWE Multilingual | 16K / 49K caps, no keepalive, 3600 s | | 53 / 300 | 63.7% |
+| SWE Multilingual | This profile | 2.0 h | 6 / 300 | 67.0% |
+
+With 16K / 49K caps and no keepalive, 48 of the 164 kills are model calls that the sandbox-to-model path drops
+after about 6 min. A Gym server sometimes fails to start
 with "Address already in use" (2 of 7 TP2 x 2 starts); `--restarts` resumes the run.

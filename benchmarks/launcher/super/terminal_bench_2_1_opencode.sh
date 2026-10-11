@@ -16,3 +16,5 @@ export NUM_NODES=${NUM_NODES:-2}
 BENCHMARK_EXTRA_ARGS+=("++terminal_bench_2_1_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.sandbox_timeout=$SANDBOX_TIMEOUT")
 # Request timeout so a call dropped on the sandbox-to-model path fails instead of hanging.
 BENCHMARK_EXTRA_ARGS+=("++terminal_bench_2_1_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.opencode_request_timeout_ms=1800000")
+# Bash tool output goes through a file, so a started service does not block the tool call (DETACH_BACKGROUND_OUTPUT=false turns it off).
+BENCHMARK_EXTRA_ARGS+=("++terminal_bench_2_1_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent.detach_background_output=${DETACH_BACKGROUND_OUTPUT:-true}")

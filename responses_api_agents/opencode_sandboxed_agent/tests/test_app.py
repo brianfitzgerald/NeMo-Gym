@@ -192,6 +192,7 @@ class TestOpenCodeSandboxedAgent:
 
         assert expected_usages == actual_usages
 
+    @mark.parametrize("detach_background_output", [False, True])
     @mark.parametrize(
         "local_binary, remote_binary, expected_install",
         [
@@ -211,8 +212,10 @@ class TestOpenCodeSandboxedAgent:
         local_binary: str | None,
         remote_binary: str | None,
         expected_install: str,
+        detach_background_output: bool,
     ) -> None:
         config = self._create_config()
+        config.detach_background_output = detach_background_output
         config.local_opencode_binary_path = local_binary
         config.remote_opencode_binary_path = remote_binary
         config.remote_opencode_install_script_path = "/mnt/install.sh" if remote_binary else None
@@ -341,6 +344,9 @@ class TestOpenCodeSandboxedAgent:
         run_command = sandbox_mock.exec.await_args_list[len(mkdir_results)].kwargs["command"]
         assert "XDG_DATA_HOME" not in run_command
         assert expected_install in run_command
+        shell_config = f'"shell": "{app_module.DETACHED_SHELL_REMOTE_PATH}"'
+        assert (shell_config in run_command) == detach_background_output
+        assert (f"chmod 0755 {app_module.DETACHED_SHELL_REMOTE_PATH}" in run_command) == detach_background_output
         if local_binary:
             sandbox_mock.upload.assert_awaited_once_with(local_binary, "/tmp/nemo-gym-opencode/opencode")
         else:
@@ -623,3 +629,18 @@ class TestOpenCodeSandboxedAgent:
         assert not hasattr(request.state, "_ng_observation_invocation_id")
         assert server._sandbox_id_to_run_result == {}
         assert not (tmp_path / "results" / "session-1" / "opencode.db").exists()
+
+
+@mark.parametrize(
+    "command, expected_output, expected_code",
+    [
+        ("echo out; echo err >&2; exit 3", "out\nerr\n", 3),
+        ("sleep 30 & echo started", "started\n", 0),
+        ("sh -c 'sleep 30' >/dev/null & echo started", "started\n", 0),
+    ],
+)
+def test_detached_shell_returns_when_command_exits(command: str, expected_output: str, expected_code: int) -> None:
+    result = subprocess.run(
+        [str(app_module.DETACHED_SHELL_PATH), "-c", command], capture_output=True, text=True, timeout=10
+    )
+    assert (result.stdout, result.returncode) == (expected_output, expected_code)

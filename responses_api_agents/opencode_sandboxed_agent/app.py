@@ -73,6 +73,10 @@ from nemo_gym.server_utils import (
 from responses_api_agents.opencode_agent.observability import append_opencode_turns, scope_opencode_trajectory
 
 
+DETACHED_SHELL_PATH = Path(__file__).parent / "detached_shell.sh"
+DETACHED_SHELL_REMOTE_PATH = "/tmp/nemo-gym-opencode/shell"
+
+
 def _load_json(value: Any) -> dict[str, Any]:
     try:
         parsed = json.loads(value)
@@ -405,6 +409,10 @@ class OpenCodeSandboxedAgentConfig(BaseResponsesAPIAgentConfig):
     opencode_request_timeout_ms: Optional[int] = Field(
         default=None, gt=0, description="Whole-request timeout in milliseconds; None disables it."
     )
+    detach_background_output: bool = Field(
+        default=False,
+        description="Run bash tool commands through detached_shell.sh, so background processes do not block the tool call.",
+    )
 
     # Sandbox config
     sandbox_provider: str
@@ -714,7 +722,15 @@ class OpenCodeSandboxedAgent(SimpleResponsesAPIAgent):
         && echo "Downloaded OpenCode installer to $installer" \
         && VERSION={self.config.opencode_version} bash "$installer\""""
 
-        opencode_config_content = json.dumps(await self._create_opencode_config(request))
+        opencode_config = await self._create_opencode_config(request)
+        if self.config.detach_background_output:
+            opencode_config["shell"] = DETACHED_SHELL_REMOTE_PATH
+            install_str = (
+                f"mkdir -p {Path(DETACHED_SHELL_REMOTE_PATH).parent} "
+                f"&& printf '%s' {quote(DETACHED_SHELL_PATH.read_text())} > {DETACHED_SHELL_REMOTE_PATH} "
+                f"&& chmod 0755 {DETACHED_SHELL_REMOTE_PATH} && {install_str}"
+            )
+        opencode_config_content = json.dumps(opencode_config)
         observation_invocation_id = getattr(request.state, "_ng_observation_invocation_id", None)
         observation_invocation_id = observation_invocation_id if isinstance(observation_invocation_id, str) else None
         collect_observations = observation_invocation_id is not None
