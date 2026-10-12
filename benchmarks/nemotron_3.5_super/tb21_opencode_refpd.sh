@@ -17,7 +17,7 @@ export MODEL=$checkpoint MODEL_NAME=super35 EXPERIMENT_NAME=$name
 export CONTAINER=${REFPD_CONTAINER:-/lustre/fsw/portfolios/nemotron/projects/nemotron_mfn_e2e/images/shared/super-vl-pd-v0280-f15f68ee-gym-606c1eda-router-84b4425d-tb21-36d417f5-rt-arm64.sqsh}
 export VLLM_CONFIG=$repo/benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh
 run_dir=$RUNS_DIR/$name
-mkdir -p "$run_dir/slurm-logs"
+mkdir -p "$run_dir" "$repo/slurm-logs"
 # This checkout replaces the image's Gym, which has no OpenCode version pin or local binary upload.
 export MOUNTS="$RUNS_DIR:$RUNS_DIR,$checkpoint:$checkpoint:ro,$repo:$repo:ro,$repo:/opt/Gym,$(dirname "$OPENCODE_BINARY_PATH"):$(dirname "$OPENCODE_BINARY_PATH"):ro"
 # Fetch GitHub dependencies from local mirrors when a server venv must be built.
@@ -28,7 +28,8 @@ fi
 export OPENSANDBOX_PROTOCOL=${OPENSANDBOX_PROTOCOL:-https} ROLLOUTS_FPATH=$run_dir/rollouts.jsonl
 
 agent=terminal_bench_2_1_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent
-cd "$run_dir"
+# The reference script finds its cleanup helper relative to the submit directory; Slurm logs go to $repo/slurm-logs.
+cd "$repo"
 bash "$repo/benchmarks/nemotron_3.5_super/sbatch_external_vllm.sh" \
     --config responses_api_models/vllm_model/configs/vllm_model.yaml \
     --config benchmarks/terminal_bench_2_1/opencode.yaml \
