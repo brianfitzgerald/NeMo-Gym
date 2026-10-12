@@ -20,6 +20,10 @@ run_dir=$RUNS_DIR/$name
 mkdir -p "$run_dir" "$repo/slurm-logs"
 # This checkout replaces the image's Gym, which has no OpenCode version pin or local binary upload.
 export MOUNTS="$RUNS_DIR:$RUNS_DIR,$checkpoint:$checkpoint:ro,$repo:$repo:ro,$repo:/opt/Gym,$(dirname "$OPENCODE_BINARY_PATH"):$(dirname "$OPENCODE_BINARY_PATH"):ro"
+# The image's baked OpenCode agent venv has a different Ray than its main venv; build a fresh one (Gym pins Ray to the head's).
+agent_venv=$RUNS_DIR/.refpd-venvs/opencode_sandboxed_agent
+mkdir -p "$agent_venv"
+MOUNTS+=",$agent_venv:/opt/uv_venvs/responses_api_agents/opencode_sandboxed_agent"
 # Fetch GitHub dependencies from local mirrors when a server venv must be built.
 if [[ -n ${GIT_MIRROR_DIR:-} ]]; then
     MOUNTS+=",$GIT_MIRROR_DIR:$GIT_MIRROR_DIR:ro"
