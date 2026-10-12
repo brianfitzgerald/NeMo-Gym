@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Ablation: TB2.1 OpenCode with the reference Super 3.5 serving (sbatch_external_vllm.sh, prefill/decode split, reference vLLM flags).
 # Reference agent and model defaults: no reasoning budget, no reply cap, no SSE keepalive, 3 h agent limit.
+# Without keepalive, replies silent for about 6 min can be dropped; the 30 min OpenCode request timeout ends such calls.
 # Usage: tb21_opencode_refpd.sh CHECKPOINT NAME (env: REPEATS, CONCURRENCY, LIMIT, NUM_PREFILL_NODES, NUM_DECODE_NODES, SBATCH_TIME)
 set -euo pipefail
 checkpoint=$(realpath "${1:?checkpoint}"); name=${2:?run name}
@@ -39,4 +40,5 @@ bash "$repo/benchmarks/nemotron_3.5_super/sbatch_external_vllm.sh" \
     --config benchmarks/terminal_bench_2_1/opencode.yaml \
     ++num_repeats="${REPEATS:-1}" ++num_samples_in_parallel="${CONCURRENCY:-128}" ++limit="${LIMIT:-null}" \
     "++$agent.local_opencode_binary_path=$OPENCODE_BINARY_PATH" \
+    "++$agent.opencode_request_timeout_ms=1800000" \
     ++route_failures_to_sidecar=true
