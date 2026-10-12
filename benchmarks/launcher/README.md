@@ -118,9 +118,9 @@ request timeout. The keepalive prevents the drops. The remaining timeouts at sho
 tool-call outputs that run to `max_tokens`.
 
 `terminal_bench_2_1_opencode.sh` defaults to the 8-repeat setting validated on 2 nodes: `SUPER_TP=2` (two TP2
-replicas per node), `MTP_TOKENS=5`, concurrency 256 (`CONCURRENCY`), 8K reasoning / 16K reply caps,
-`SSE_KEEPALIVE_S=30`, a 6600 s agent limit and `detach_background_output`. Set `MTP_TOKENS=` for checkpoints
-without MTP weights. Pass `--name NAME --restarts 2` so a failed start or the 4 h job limit resumes the run.
+replicas per node), no MTP, concurrency 256 (`CONCURRENCY`), 8K reasoning / 16K reply caps,
+`SSE_KEEPALIVE_S=30`, a 6600 s agent limit and `detach_background_output`. Pass `--name NAME --restarts 2`
+so a failed start or the 4 h job limit resumes the run.
 
 Throughput tests on an SFT checkpoint, TB2.1 OpenCode, 2 nodes, 10-60 min after start, 2026-10-08:
 
@@ -158,8 +158,30 @@ the tool call returns when the command exits. `DETACH_BACKGROUND_OUTPUT=false` t
 With the fix, the rollouts that were stuck continue to work, so more of them reach the agent limit while active.
 The 3 that remain stuck run a long foreground command.
 
-`swe_verified.sh` and `swe_multilingual.sh` use the same model settings (`SUPER_TP=2`, MTP 5, 8K / 16K caps,
-`SSE_KEEPALIVE_S=30`, 6600 s, 2 nodes, concurrency 256), without `detach_background_output`. 1 repeat, 2026-10-10:
+The tests above use MTP 5. MTP is now off: with MTP, `thinking_token_budget` sometimes does not end the
+reasoning, so the reply runs to the 16K cap with no tool call and OpenCode ends the run (see
+[vllm#54906](https://github.com/vllm-project/vllm/issues/54906) and
+[vllm#61116](https://github.com/vllm-project/vllm/issues/61116)). Rollouts whose last model call ends on
+`finish_reason=length`: 5.6% with MTP 5 at 8 repeats, 42% at 1 repeat, 0.7-1.8% without MTP. Without MTP each
+request is slower (about 33 tok/s against 57), so more rollouts reach the agent limit.
+
+8-repeat runs, TP2 x 2, no MTP, 6600 s, 2026-10-11 to 10-12:
+
+| SFT step | Concurrency | Wall time | Killed rollouts | Mean reward | SE across repeats |
+|---|---|---|---|---|---|
+| 5141 (MTP 5, for comparison) | 256 | 3.0 h | 76 | 53.9% | 1.2 |
+| 5141 | 256 | 3.5 h | 141 | 54.2% | 1.0 |
+| 5141 | 128 | about 6 h | 115 | 54.4% | 1.4 |
+| 9500 | 256 | 3.5 h | 140 | 55.1% | 1.5 |
+| 11905 | 256 | 3.3 h | 130 | 57.4% | 0.65 |
+
+Of the 411 kills at concurrency 256, 373 are rollouts still active at the agent limit. Model calls take 96%
+of their wall time (median 62 calls, 213K output tokens). Most are on tasks that score 0% when they finish.
+The others are sandbox errors (17), stuck tool calls (12) and agent self-kills (about 9).
+
+`swe_verified.sh` and `swe_multilingual.sh` use the same model settings (`SUPER_TP=2`, no MTP, 8K / 16K caps,
+`SSE_KEEPALIVE_S=30`, 6600 s, 2 nodes, concurrency 256), without `detach_background_output`. The results below
+use MTP 5. 1 repeat, 2026-10-10:
 
 | Benchmark | Setting | Wall time | Killed rollouts | Mean reward |
 |---|---|---|---|---|
