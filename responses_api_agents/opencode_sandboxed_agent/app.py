@@ -16,6 +16,7 @@
 import json
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 from shlex import quote
 from time import time
@@ -75,6 +76,8 @@ from responses_api_agents.opencode_agent.observability import append_opencode_tu
 
 DETACHED_SHELL_PATH = Path(__file__).parent / "detached_shell.sh"
 DETACHED_SHELL_REMOTE_PATH = "/tmp/nemo-gym-opencode/shell"
+PROMPT_REMOTE_PATH = "/tmp/nemo-gym-opencode/prompt.txt"
+RUN_SCRIPT_REMOTE_PATH = "/tmp/nemo-gym-opencode/run.sh"
 
 
 def _load_json(value: Any) -> dict[str, Any]:
@@ -413,6 +416,10 @@ class OpenCodeSandboxedAgentConfig(BaseResponsesAPIAgentConfig):
         default=False,
         description="Run bash tool commands through detached_shell.sh, so background processes do not block the tool call.",
     )
+    prompt_from_file: bool = Field(
+        default=False,
+        description="Upload the prompt and run script, so process command lines do not contain the task text (pkill -f).",
+    )
 
     # Sandbox config
     sandbox_provider: str
@@ -750,15 +757,24 @@ class OpenCodeSandboxedAgent(SimpleResponsesAPIAgent):
         # and there is no way to set it to null.
         # Here, we set an exorbitantly high number that cannot ever be reached.
         # In future versions of OpenCode, this can be directly passed via maxOutputTokens in the limit config above https://github.com/anomalyco/opencode/blob/1b18a50418f730aca32630ccfcde850f2b5fc360/packages/opencode/src/provider/transform.ts#L1418
+        prompt_str = f"< {PROMPT_REMOTE_PATH}" if self.config.prompt_from_file else f"-- {quote(query)}"
         command = f"""
         echo "Shell: $SHELL" \
         && {install_str} \
         && export PATH=$HOME/.opencode/bin:$PATH \
         && echo "Installed OpenCode" \
         && OPENCODE_CONFIG_CONTENT={quote(opencode_config_content)} OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=1000000000 {xdg_home_str} \
-            opencode run --title "NG dummy title" {opencode_debug_str} {opencode_thinking_str} -- {quote(query)} \
+            opencode run --title "NG dummy title" {opencode_debug_str} {opencode_thinking_str} {prompt_str} \
         && echo "OpenCode run finished"
         """
+        if self.config.prompt_from_file:
+            await sandbox.exec(command=f"mkdir -p {Path(RUN_SCRIPT_REMOTE_PATH).parent}")
+            with tempfile.TemporaryDirectory(prefix="nemo-gym-opencode-") as tmp_dir:
+                for remote_path, content in ((PROMPT_REMOTE_PATH, query), (RUN_SCRIPT_REMOTE_PATH, command)):
+                    local_path = Path(tmp_dir) / Path(remote_path).name
+                    local_path.write_text(content)
+                    await sandbox.upload(local_path, remote_path)
+            command = f"bash {RUN_SCRIPT_REMOTE_PATH}"
 
         if self.config.debug:
             print(f"Running command:\n```bash\n{command}\n```\n", file=sys.stderr)
