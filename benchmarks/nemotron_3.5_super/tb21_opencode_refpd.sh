@@ -10,6 +10,8 @@ repo=$(cd "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 # Slurm, OpenSandbox, W&B and run-directory settings (gitignored).
 set -a; source "${ENV_FILE:-$repo/benchmarks/launcher/.env}"; set +a
 
+# The batch partition rejects jobs without a GPU request.
+export SBATCH_GRES=${SBATCH_GRES:-gpu:4}
 export VLLM_MODE=pd NUM_PREFILL_NODES=${NUM_PREFILL_NODES:-1} NUM_DECODE_NODES=${NUM_DECODE_NODES:-1}
 export MODEL=$checkpoint MODEL_NAME=super35 EXPERIMENT_NAME=$name
 export CONTAINER=${REFPD_CONTAINER:-/lustre/fsw/portfolios/nemotron/projects/nemotron_mfn_e2e/images/shared/super-vl-pd-v0280-f15f68ee-gym-606c1eda-router-84b4425d-tb21-36d417f5-rt-arm64.sqsh}
