@@ -15,7 +15,7 @@ export MODEL=$checkpoint MODEL_NAME=super35 EXPERIMENT_NAME=$name
 export CONTAINER=${REFPD_CONTAINER:-/lustre/fsw/portfolios/nemotron/projects/nemotron_mfn_e2e/images/shared/super-vl-pd-v0280-f15f68ee-gym-606c1eda-router-84b4425d-tb21-36d417f5-rt-arm64.sqsh}
 export VLLM_CONFIG=$repo/benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh
 run_dir=$RUNS_DIR/$name
-mkdir -p "$run_dir"
+mkdir -p "$run_dir/slurm-logs"
 # This checkout replaces the image's Gym, which has no OpenCode version pin or local binary upload.
 export MOUNTS="$RUNS_DIR:$RUNS_DIR,$checkpoint:$checkpoint:ro,$repo:$repo:ro,$repo:/opt/Gym,$(dirname "$OPENCODE_BINARY_PATH"):$(dirname "$OPENCODE_BINARY_PATH"):ro"
 # Fetch GitHub dependencies from local mirrors when a server venv must be built.
