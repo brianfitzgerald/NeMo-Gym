@@ -192,6 +192,7 @@ class TestOpenCodeSandboxedAgent:
 
         assert expected_usages == actual_usages
 
+    @mark.parametrize("prompt_from_file", [False, True])
     @mark.parametrize("detach_background_output", [False, True])
     @mark.parametrize(
         "local_binary, remote_binary, expected_install",
@@ -213,16 +214,20 @@ class TestOpenCodeSandboxedAgent:
         remote_binary: str | None,
         expected_install: str,
         detach_background_output: bool,
+        prompt_from_file: bool,
     ) -> None:
         config = self._create_config()
         config.detach_background_output = detach_background_output
+        config.prompt_from_file = prompt_from_file
         config.local_opencode_binary_path = local_binary
         config.remote_opencode_binary_path = remote_binary
         config.remote_opencode_install_script_path = "/mnt/install.sh" if remote_binary else None
         server = OpenCodeSandboxedAgent(config=config, server_client=MagicMock(spec=ServerClient))
 
         sandbox_mock = MagicMock()
-        mkdir_results = [SimpleNamespace(stdout="", stderr="", return_code=0, error_type=None)] if local_binary else []
+        mkdir_results = [SimpleNamespace(stdout="", stderr="", return_code=0, error_type=None)] * (
+            bool(local_binary) + prompt_from_file
+        )
         sandbox_mock.exec = AsyncMock(
             side_effect=[
                 *mkdir_results,
@@ -234,7 +239,16 @@ class TestOpenCodeSandboxedAgent:
             ]
         )
         sandbox_mock.download = AsyncMock()
-        sandbox_mock.upload = AsyncMock()
+        uploads = {}
+
+        async def record_upload(local_path, remote_path):
+            if local_path == local_binary:
+                uploads[remote_path] = local_path
+                return
+            with open(local_path) as f:
+                uploads[remote_path] = f.read()
+
+        sandbox_mock.upload = AsyncMock(side_effect=record_upload)
         monkeypatch.setattr(server, "_sandbox_id_to_sandbox", {"": sandbox_mock})
         monkeypatch.setattr(server, "_create_opencode_config", AsyncMock(return_value=dict()))
 
@@ -342,15 +356,19 @@ class TestOpenCodeSandboxedAgent:
         assert expected_response == actual_response
         assert not any(key.startswith("_ng_") for key in server._sandbox_id_to_run_result[""])
         run_command = sandbox_mock.exec.await_args_list[len(mkdir_results)].kwargs["command"]
+        if prompt_from_file:
+            assert run_command == f"bash {app_module.RUN_SCRIPT_REMOTE_PATH}"
+            assert uploads.pop(app_module.PROMPT_REMOTE_PATH) == "hello"
+            run_command = uploads.pop(app_module.RUN_SCRIPT_REMOTE_PATH)
+            assert f"< {app_module.PROMPT_REMOTE_PATH}" in run_command and "-- hello" not in run_command
+        else:
+            assert "-- hello" in run_command
         assert "XDG_DATA_HOME" not in run_command
         assert expected_install in run_command
         shell_config = f'"shell": "{app_module.DETACHED_SHELL_REMOTE_PATH}"'
         assert (shell_config in run_command) == detach_background_output
         assert (f"chmod 0755 {app_module.DETACHED_SHELL_REMOTE_PATH}" in run_command) == detach_background_output
-        if local_binary:
-            sandbox_mock.upload.assert_awaited_once_with(local_binary, "/tmp/nemo-gym-opencode/opencode")
-        else:
-            sandbox_mock.upload.assert_not_awaited()
+        assert uploads == ({"/tmp/nemo-gym-opencode/opencode": local_binary} if local_binary else {})
 
     def test_agent_sandbox_observation_classifies_timeout_errors(self) -> None:
         server = OpenCodeSandboxedAgent(

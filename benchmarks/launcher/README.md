@@ -158,6 +158,15 @@ the tool call returns when the command exits. `DETACH_BACKGROUND_OUTPUT=false` t
 With the fix, the rollouts that were stuck continue to work, so more of them reach the agent limit while active.
 The 3 that remain stuck run a long foreground command.
 
+The agent can also kill itself. The task prompt is in the command line of `opencode run` and of the shell that
+starts it, so `pkill -f` or a `/proc` cmdline scan with a word from the task (for example `pkill -f mailman`)
+stops the agent. In the 8-repeat runs with `detach_background_output` on 3500, 4500 and 5141, 12 of 2,136
+rollouts (0.6%) ended this way, in caffe-cifar-10, qemu-alpine-ssh, qemu-startup, train-fasttext, git-multibranch
+and mailman. The profiles allow this failure: an agent that kills its own process fails the task. The agent
+setting `prompt_from_file` (off by default) uploads the prompt and the run script to the sandbox, so no command
+line contains the task text. With it on, these 6 tasks had 0 self-kills in 96 rollouts (16 repeats on 5141).
+`pkill -f "opencode run"` still stops the agent.
+
 `swe_verified.sh` and `swe_multilingual.sh` use the same model settings (`SUPER_TP=2`, MTP 5, 8K / 16K caps,
 `SSE_KEEPALIVE_S=30`, 6600 s, 2 nodes, concurrency 256), without `detach_background_output`. 1 repeat, 2026-10-10:
 
