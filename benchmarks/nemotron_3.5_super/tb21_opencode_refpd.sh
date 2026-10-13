@@ -4,7 +4,8 @@
 # Ablation: TB2.1 OpenCode with the reference Super 3.5 serving (sbatch_external_vllm.sh, prefill/decode split, reference vLLM flags).
 # Reference agent and model defaults: no reasoning budget, no reply cap, 3 h agent limit.
 # SSE keepalive on (30 s) and 30 min OpenCode request timeout, as in T3.
-# Usage: tb21_opencode_refpd.sh CHECKPOINT NAME (env: REPEATS, CONCURRENCY, LIMIT, NUM_PREFILL_NODES, NUM_DECODE_NODES, SBATCH_TIME)
+# Usage: tb21_opencode_refpd.sh CHECKPOINT NAME (env: REPEATS, CONCURRENCY, LIMIT, NUM_PREFILL_NODES, NUM_DECODE_NODES, SBATCH_TIME,
+#   THINKING_BUDGET and MAX_TOKENS for T3 caps, DETACH_BACKGROUND_OUTPUT=true for the hang fix)
 set -euo pipefail
 checkpoint=$(realpath "${1:?checkpoint}"); name=${2:?run name}
 repo=$(cd "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
@@ -35,6 +36,11 @@ export OPENSANDBOX_PROTOCOL=${OPENSANDBOX_PROTOCOL:-https} ROLLOUTS_FPATH=$run_d
 agent=terminal_bench_2_1_opencode_sandboxed_agent.responses_api_agents.opencode_sandboxed_agent
 # The reference script finds its cleanup helper relative to the submit directory; Slurm logs go to $repo/slurm-logs.
 cd "$repo"
+model=policy_model.responses_api_models.vllm_model
+extra=()
+[[ -z ${THINKING_BUDGET:-} ]] || extra+=("++$model.sampling_overrides.thinking_token_budget=$THINKING_BUDGET")
+[[ -z ${MAX_TOKENS:-} ]] || extra+=("++$model.sampling_overrides.max_tokens=$MAX_TOKENS")
+[[ -z ${DETACH_BACKGROUND_OUTPUT:-} ]] || extra+=("++$agent.detach_background_output=$DETACH_BACKGROUND_OUTPUT")
 bash "$repo/benchmarks/nemotron_3.5_super/sbatch_external_vllm.sh" \
     --config responses_api_models/vllm_model/configs/vllm_model.yaml \
     --config benchmarks/terminal_bench_2_1/opencode_fast.yaml \
@@ -42,6 +48,6 @@ bash "$repo/benchmarks/nemotron_3.5_super/sbatch_external_vllm.sh" \
     "++$agent.local_opencode_binary_path=$OPENCODE_BINARY_PATH" \
     "++$agent.sandbox_timeout=10800" \
     "++$agent.opencode_request_timeout_ms=1800000" \
-    ++policy_model.responses_api_models.vllm_model.sse_keepalive_interval_s=30 \
-    "++model_call_capture_dir=$run_dir/captures" \
-    ++route_failures_to_sidecar=true
+    "++$model.sse_keepalive_interval_s=30" \
+    ++observability_enabled=true "++model_call_capture_dir=$run_dir/captures" \
+    ++route_failures_to_sidecar=true "${extra[@]}"
