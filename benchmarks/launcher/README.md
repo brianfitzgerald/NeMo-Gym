@@ -119,8 +119,8 @@ tool-call outputs that run to `max_tokens`.
 
 `terminal_bench_2_1_opencode.sh` defaults to the 8-repeat setting validated on 2 nodes: `SUPER_TP=2` (two TP2
 replicas per node), no MTP, concurrency 256 (`CONCURRENCY`), 8K reasoning / 16K reply caps,
-`SSE_KEEPALIVE_S=30`, a 6600 s agent limit and `detach_background_output`. Pass `--name NAME --restarts 2`
-so a failed start or the 4 h job limit resumes the run.
+`SSE_KEEPALIVE_S=30`, a 3 h agent limit (`SANDBOX_TIMEOUT=10800`) and `detach_background_output`. An 8-repeat
+run takes about 7 h, so pass `--name NAME --restarts 3`: a failed start or the 4 h job limit resumes the run.
 
 Throughput tests on an SFT checkpoint, TB2.1 OpenCode, 2 nodes, 10-60 min after start, 2026-10-08:
 
@@ -174,10 +174,12 @@ request is slower (about 33 tok/s against 57), so more rollouts reach the agent 
 | 5141 | 128 | about 6 h | 115 | 54.4% | 1.4 |
 | 9500 | 256 | 3.5 h | 140 | 55.1% | 1.5 |
 | 11905 | 256 | 3.3 h | 130 | 57.4% | 0.65 |
+| 11905, 3 h agent limit | 256 | about 7.2 h | 69 | 61.1% | 1.29 |
 
 Of the 411 kills at concurrency 256, 373 are rollouts still active at the agent limit. Model calls take 96%
 of their wall time (median 62 calls, 213K output tokens). Most are on tasks that score 0% when they finish.
 The others are sandbox errors (17), stuck tool calls (12) and agent self-kills (about 9).
+With a 3 h agent limit, 127 rollouts run past 6600 s and 23 of them pass, so the profile now uses 3 h.
 
 `swe_verified.sh` and `swe_multilingual.sh` use the same model settings (`SUPER_TP=2`, no MTP, 8K / 16K caps,
 `SSE_KEEPALIVE_S=30`, 6600 s, 2 nodes, concurrency 256), without `detach_background_output`. The results below

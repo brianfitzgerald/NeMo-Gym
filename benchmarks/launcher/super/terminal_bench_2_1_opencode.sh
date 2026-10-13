@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-# 8-repeat setting validated on 2 nodes (README): two TP2 replicas per node, no MTP, 8K reasoning / 16K reply caps, 6600 s agent limit.
+# 8-repeat setting validated on 2 nodes (README): two TP2 replicas per node, no MTP, 8K reasoning / 16K reply caps, 3 h agent limit.
 SUPER_TP=${SUPER_TP:-2}
 # MTP is off: with MTP the reasoning budget sometimes does not end the reasoning (README).
 THINKING_BUDGET=${THINKING_BUDGET:-8192} MAX_TOKENS=${MAX_TOKENS:-16384}
-SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-6600} SSE_KEEPALIVE_S=${SSE_KEEPALIVE_S-30}
+SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-10800} SSE_KEEPALIVE_S=${SSE_KEEPALIVE_S-30}
 BENCHMARK_REPEATS=${BENCHMARK_REPEATS:-8}
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 BENCHMARK=tb21_opencode
