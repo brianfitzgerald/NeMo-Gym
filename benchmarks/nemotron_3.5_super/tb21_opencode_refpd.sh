@@ -5,6 +5,7 @@
 # Reference agent and model defaults: no reasoning budget, no reply cap, 3 h agent limit.
 # SSE keepalive on (30 s) and 30 min OpenCode request timeout, as in T3.
 # Usage: tb21_opencode_refpd.sh CHECKPOINT NAME (env: REPEATS, CONCURRENCY, LIMIT, NUM_PREFILL_NODES, NUM_DECODE_NODES, SBATCH_TIME,
+#   VLLM_MODE=aggregated NUM_NODES=N for N TP4 replicas with no prefill/decode split,
 #   THINKING_BUDGET and MAX_TOKENS for T3 caps, DETACH_BACKGROUND_OUTPUT=true for the hang fix)
 set -euo pipefail
 checkpoint=$(realpath "${1:?checkpoint}"); name=${2:?run name}
@@ -14,7 +15,7 @@ set -a; source "${ENV_FILE:-$repo/benchmarks/launcher/.env}"; set +a
 
 # The batch partition rejects jobs without a GPU request.
 export SBATCH_GRES=${SBATCH_GRES:-gpu:4}
-export VLLM_MODE=pd NUM_PREFILL_NODES=${NUM_PREFILL_NODES:-1} NUM_DECODE_NODES=${NUM_DECODE_NODES:-1}
+export VLLM_MODE=${VLLM_MODE:-pd} NUM_NODES=${NUM_NODES:-2} NUM_PREFILL_NODES=${NUM_PREFILL_NODES:-1} NUM_DECODE_NODES=${NUM_DECODE_NODES:-1}
 export MODEL=$checkpoint MODEL_NAME=super35 EXPERIMENT_NAME=$name
 export CONTAINER=${REFPD_CONTAINER:-/lustre/fsw/portfolios/nemotron/projects/nemotron_mfn_e2e/images/shared/super-vl-pd-v0280-f15f68ee-gym-606c1eda-router-84b4425d-tb21-36d417f5-rt-arm64.sqsh}
 export VLLM_CONFIG=$repo/benchmarks/nemotron_3.5_super/vllm_configs/nemotron_3.5_super.sh
